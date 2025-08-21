@@ -3,27 +3,27 @@ import numpy as np
 
 class Enemy:
     def __init__(self, pos, speed=0.02, hp=3):
-        self.pos = np.array(pos, dtype=np.float32)  # spremam poziciju kao [x, y]
+        self.pos = np.array(pos, dtype=np.float32)  # Pohrana pozicije kao [x, y]
         self.speed = speed
         self.alive = True
         self.hp = hp
         self.texture = pg.image.load('textures/airship_1.png').convert_alpha()
     
     def update(self, player_pos):
-        # da se bot krece prema igracu
+        # Jednostavna AI logika: kretanje prema igraču
         direction = player_pos - self.pos
         distance = np.linalg.norm(direction)
         if distance > 0:
             self.pos += (direction / distance) * self.speed
     
     def draw(self, screen, mode7):
-        # pretvara 3D world u screen koristeci mode7's projection logic
+        # Projekcija svjetskih koordinata na ekran putem Mode7 projekcije
         screen_x, screen_y, scale = mode7.project(self.pos)
         
-        if scale > 0:  # da se bot vidi
+        if scale > 0:  # Prikaži neprijatelja samo ako je u vidnom polju
             scaled_texture = pg.transform.scale(self.texture, (scale, scale))
             screen.blit(scaled_texture, (int(screen_x) - scale//2, int(screen_y) - scale//2))
-            # hp bar neprijatelja
+            # Traka zdravlja neprijatelja
             bar_width = max(10, scale)
             bar_height = 4
             hp_ratio = max(0.0, min(1.0, self.hp / 3.0))
@@ -33,20 +33,20 @@ class Enemy:
             pg.draw.rect(screen, (200, 60, 40), (bar_x, bar_y, int(bar_width * hp_ratio), bar_height))
     
     def check_collision(self, projectile):
-        return np.linalg.norm(self.pos - projectile.pos) < 0.6  # distanca udaranja (neprijatelj i projektil)
+        return np.linalg.norm(self.pos - projectile.pos) < 0.6  # Provjera sudara na temelju udaljenosti
 
 
 class Projectile:
     def __init__(self, player_pos, player_angle, speed=0.5, max_distance=20, damage=1):
-        # pretvara kut u radijane ako je potrebno (ovo mi je chat pomogao)
+        # Pretvaranje kuta u radijane (ako je potrebno)
         player_angle = np.radians(player_angle) if player_angle > np.pi * 2 else player_angle
         
-        # racuna smjer prema igracu (90-degree offset chat pomogao malo)
+        # Izračun smjera projektila (korekcija od 90°)
         direction_x = np.cos(player_angle - np.pi/2)
         direction_y = -np.sin(player_angle - np.pi/2)
         self.direction = np.array([direction_x, direction_y], dtype=np.float32)
         
-        # pomjera projektil prema igracu 
+        # Početni pomak projektila u smjeru kretanja
         offset_distance = 2.0
         rotated_offset_x = offset_distance * direction_x
         rotated_offset_y = offset_distance * direction_y
@@ -68,13 +68,13 @@ class Projectile:
     def draw(self, screen, mode7):
         screen_x, screen_y, scale = mode7.project(self.pos)
         
-        # velicina projektila ovisno o udaljenosti
+        # Veličina projektila ovisno o udaljenosti
         distance_traveled = np.linalg.norm(self.pos - self.start_pos)
-        initial_size = 9  # velicina na spawnu
-        min_size = 1  # najmanja velicina kad je udaljeno
+        initial_size = 9  # Početna veličina
+        min_size = 1  # Najmanja veličina kada je daleko
         size = max(min_size, initial_size - int(distance_traveled / self.max_distance * initial_size))
         
-        pg.draw.circle(screen, (0, 0, 0), (int(screen_x), int(screen_y)), size)  # plavi projektil
+        pg.draw.circle(screen, (0, 0, 0), (int(screen_x), int(screen_y)), size)  # Crtanje projektila
 
 
 class Game:
@@ -98,7 +98,7 @@ class Game:
         for projectile in self.projectiles:
             projectile.update()
 
-        # sudar projektila i neprijatelja
+        # Kolizija projektila i neprijatelja
         enemies_to_remove = []
         for projectile in self.projectiles:
             if not projectile.active:
@@ -112,11 +112,11 @@ class Game:
                         self.score += 100
                     break
 
-        # brise uništene neprijatelje
+        # Uklanjanje uništenih neprijatelja
         if enemies_to_remove:
             self.enemies = [e for e in self.enemies if e not in enemies_to_remove]
 
-        # sudar igraca i neprijatelja
+        # Kolizija igrača i neprijatelja
         now_ms = pg.time.get_ticks()
         for enemy in self.enemies:
             if np.linalg.norm(enemy.pos - player_pos) < 1.2:
@@ -128,7 +128,7 @@ class Game:
                         self.game_over = True
                 break
 
-        # brise neaktivne projektile nastavak
+        # Uklanjanje neaktivnih projektila
         self.projectiles = [p for p in self.projectiles if p.active]
     
     def draw(self, screen):
