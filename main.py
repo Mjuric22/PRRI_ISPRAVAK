@@ -132,6 +132,8 @@ class App:
             self.screen.blit(flash, (0, 0))
         if self.game.game_over:
             self.draw_game_over()
+        elif getattr(self.game, 'game_won', False):
+            self.draw_win_screen()
         pg.display.flip()
 
     def check_event(self):
@@ -147,7 +149,7 @@ class App:
                     # Slanje kuta bez korekcije; projektil sada koristi direktno taj kut
                     self.game.shoot(self.mode7.pos, self.mode7.angle)
             elif event.type == pg.KEYDOWN and event.key == pg.K_r:
-                if self.game.game_over:
+                if self.game.game_over or getattr(self.game, 'game_won', False):
                     self.mode7.pos = np.array([0.0, 0.0])
                     self.mode7.angle = 0.0
                     self.mode7.alt = 1.0
@@ -180,6 +182,17 @@ class App:
         overlay.fill((0, 0, 0, 160))
         self.screen.blit(overlay, (0, 0))
         text = self.big_font.render('GAME OVER', True, (230, 200, 180))
+        tip = self.font.render('Pritisni R za restart', True, (230, 230, 230))
+        rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
+        tip_rect = tip.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
+        self.screen.blit(text, rect)
+        self.screen.blit(tip, tip_rect)
+
+    def draw_win_screen(self):
+        overlay = pg.Surface(WIN_RES, pg.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        self.screen.blit(overlay, (0, 0))
+        text = self.big_font.render('YOU WIN!', True, (230, 200, 180))
         tip = self.font.render('Pritisni R za restart', True, (230, 230, 230))
         rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
         tip_rect = tip.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
