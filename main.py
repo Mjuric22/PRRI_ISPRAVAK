@@ -112,8 +112,9 @@ class App:
         self.running = True
 
     def update(self):
-        player_pos = self.mode7.pos
+        # Prvo ažuriraj kretanje igrača, zatim koristi NOVU poziciju
         self.mode7.update()
+        player_pos = self.mode7.pos
         self.game.update(player_pos)
         self.clock.tick()
         pg.display.set_caption(f'{self.clock.get_fps():.1f}')
@@ -122,6 +123,13 @@ class App:
         self.mode7.draw()
         self.game.draw(self.screen)
         self.draw_hud()
+        # Crveni flash kada igrač primi štetu
+        now_ms = pg.time.get_ticks()
+        if now_ms < getattr(self.game, 'hit_flash_end_ms', 0):
+            alpha = 120
+            flash = pg.Surface(WIN_RES, pg.SRCALPHA)
+            flash.fill((220, 40, 40, alpha))
+            self.screen.blit(flash, (0, 0))
         if self.game.game_over:
             self.draw_game_over()
         pg.display.flip()
@@ -136,6 +144,7 @@ class App:
             elif event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 direction = np.array([np.cos(self.mode7.angle), np.sin(self.mode7.angle)])
                 if not self.game.game_over:
+                    # Slanje kuta bez korekcije; projektil sada koristi direktno taj kut
                     self.game.shoot(self.mode7.pos, self.mode7.angle)
             elif event.type == pg.KEYDOWN and event.key == pg.K_r:
                 if self.game.game_over:

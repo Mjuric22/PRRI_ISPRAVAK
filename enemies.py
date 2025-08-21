@@ -8,13 +8,34 @@ class Enemy:
         self.alive = True
         self.hp = hp
         self.texture = pg.image.load('textures/airship_1.png').convert_alpha()
+        # Svaki neprijatelj dobiva blagi nasumični "strafe" faktor (ne idu svi u istu liniju)
+        self.strafe_bias = float(np.random.uniform(-0.4, 0.4))
+        self.retarget_interval_ms = int(np.random.randint(1400, 2600))
+        self.next_retarget_ms = int(pg.time.get_ticks() + self.retarget_interval_ms)
     
     def update(self, player_pos):
-        # Jednostavna AI logika: kretanje prema igraču
+        # Uvijek juri prema igraču, ali s blagim "strafe" skretanjem da se ne skupljaju
+        now_ms = pg.time.get_ticks()
+        if now_ms >= self.next_retarget_ms:
+            self.strafe_bias = float(np.random.uniform(-0.4, 0.4))
+            self.retarget_interval_ms = int(np.random.randint(1200, 2600))
+            self.next_retarget_ms = int(now_ms + self.retarget_interval_ms)
+
         direction = player_pos - self.pos
         distance = np.linalg.norm(direction)
-        if distance > 0:
-            self.pos += (direction / distance) * self.speed
+        if distance > 1e-5:
+            unit = direction / distance
+            # Vektor okomit na smjer prema igraču
+            perp = np.array([-unit[1], unit[0]], dtype=np.float32)
+            biased_dir = unit + perp * self.strafe_bias
+            # Normalizacija kako bismo zadržali konstantnu brzinu
+            norm = float(np.linalg.norm(biased_dir))
+            if norm > 1e-6:
+                biased_dir = biased_dir / norm
+            # Osiguraj kretanje naprijed (prema igraču), ne od igrača
+            if np.dot(biased_dir, unit) <= 0.0:
+                biased_dir = unit
+            self.pos += biased_dir * self.speed
     
     def draw(self, screen, mode7):
         # Projekcija svjetskih koordinata na ekran putem Mode7 projekcije
@@ -37,16 +58,13 @@ class Enemy:
 
 
 class Projectile:
-    def __init__(self, player_pos, player_angle, speed=0.5, max_distance=20, damage=1):
-        # Pretvaranje kuta u radijane (ako je potrebno)
-        player_angle = np.radians(player_angle) if player_angle > np.pi * 2 else player_angle
-        
-        # Izračun smjera projektila (korekcija od 90°)
-        direction_x = np.cos(player_angle - np.pi/2)
-        direction_y = -np.sin(player_angle - np.pi/2)
+    def __init__(self, player_pos, player_angle, speed=0.6, max_distance=22, damage=1):
+        # Smjer projektila točno prema smjeru pogleda (Mode7 forward = [sin(a), cos(a)])
+        direction_x = np.sin(player_angle)
+        direction_y = np.cos(player_angle)
         self.direction = np.array([direction_x, direction_y], dtype=np.float32)
         
-        # Početni pomak projektila u smjeru kretanja
+        # Početni pomak projektila u smjeru kretanja (ispred igrača)
         offset_distance = 2.0
         rotated_offset_x = offset_distance * direction_x
         rotated_offset_y = offset_distance * direction_y
@@ -67,14 +85,12 @@ class Projectile:
     
     def draw(self, screen, mode7):
         screen_x, screen_y, scale = mode7.project(self.pos)
-        
-        # Veličina projektila ovisno o udaljenosti
-        distance_traveled = np.linalg.norm(self.pos - self.start_pos)
-        initial_size = 9  # Početna veličina
-        min_size = 1  # Najmanja veličina kada je daleko
-        size = max(min_size, initial_size - int(distance_traveled / self.max_distance * initial_size))
-        
-        pg.draw.circle(screen, (0, 0, 0), (int(screen_x), int(screen_y)), size)  # Crtanje projektila
+        if scale <= 0:
+            return
+        # Veličinu vežemo uz perspektivu (Mode7 scale) i garantiramo vidljivost
+        size = max(3, min(10, int(scale * 0.4)))
+        # Kontrastna boja da se jasno vidi na tamnoj pozadini
+        pg.draw.circle(screen, (255, 220, 80), (int(screen_x), int(screen_y)), size)
 
 
 class Game:
@@ -88,6 +104,14 @@ class Game:
         self.last_player_hit_ms = 0
         self.player_hit_cooldown_ms = 800
         self.game_over = False
+        # Vizualni efekt pri pogotku (trajanje u ms)
+        self.hit_flash_end_ms = 0
+        # Opcionalni zvuk pogotka (spremi datoteku u sounds/hit.wav)
+        self.hit_sound = None
+        try:
+            self.hit_sound = pg.mixer.Sound('sounds/hit.mp3')
+        except Exception:
+            self.hit_sound = None
     
     def update(self, player_pos):
         if self.game_over:
@@ -116,17 +140,27 @@ class Game:
         if enemies_to_remove:
             self.enemies = [e for e in self.enemies if e not in enemies_to_remove]
 
-        # Kolizija igrača i neprijatelja
+        # Kolizija igrača i neprijatelja (samo jako blizu) — neprijatelj nestaje na kontakt, bez cooldowna
         now_ms = pg.time.get_ticks()
+        enemy_to_remove_on_contact = None
         for enemy in self.enemies:
-            if np.linalg.norm(enemy.pos - player_pos) < 1.2:
-                if now_ms - self.last_player_hit_ms >= self.player_hit_cooldown_ms:
-                    self.player_hp -= 1
-                    self.last_player_hit_ms = now_ms
-                    if self.player_hp <= 0:
-                        self.player_hp = 0
-                        self.game_over = True
+            if np.linalg.norm(enemy.pos - player_pos) < 0.6:
+                enemy_to_remove_on_contact = enemy
+                # Svaki kontakt odmah oduzima HP (bez cooldowna)
+                self.player_hp -= 1
+                # Postavi flash efekt i pusti zvuk (ako postoji)
+                self.hit_flash_end_ms = now_ms + 180
+                if self.hit_sound:
+                    try:
+                        self.hit_sound.play()
+                    except Exception:
+                        pass
+                if self.player_hp <= 0:
+                    self.player_hp = 0
+                    self.game_over = True
                 break
+        if enemy_to_remove_on_contact is not None:
+            self.enemies = [e for e in self.enemies if e is not enemy_to_remove_on_contact]
 
         # Uklanjanje neaktivnih projektila
         self.projectiles = [p for p in self.projectiles if p.active]
@@ -147,4 +181,5 @@ class Game:
         self.player_hp = self.player_max_hp
         self.last_player_hit_ms = 0
         self.game_over = False
+        self.hit_flash_end_ms = 0
 
