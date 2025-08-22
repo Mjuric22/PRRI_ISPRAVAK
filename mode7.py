@@ -30,29 +30,24 @@ class Mode7:
         pg.surfarray.blit_array(self.app.screen, self.screen_array)
 
     def project(self, world_pos):
-        """Pretvara svjetske koordinate (x, y) u zaslonske koordinate (screen_x, screen_y) uz skaliranje veličine"""
         relative_pos = world_pos - self.pos
         rotated_x = relative_pos[0] * np.cos(self.angle) - relative_pos[1] * np.sin(self.angle)
         rotated_y = relative_pos[0] * np.sin(self.angle) + relative_pos[1] * np.cos(self.angle)
 
-        if rotated_y <= 0.1:  # Spriječi dijeljenje s nulom i potpuno nestajanje objekata
-            return -1000, -1000, 0  # Vrati poziciju izvan ekrana
+        if rotated_y <= 0.1:
+            return -1000, -1000, 0
 
         screen_x = int(WIDTH / 2 + rotated_x / rotated_y * WIDTH / 4)
         screen_y = int(HEIGHT / 2 - self.alt * 50 / rotated_y)
-
-        # Skaliranje veličine ovisno o udaljenosti (bliže = veće)
-        scale = max(5, int(100 / rotated_y))  # Spriječi prenisku vrijednost skaliranja
+        scale = max(5, int(100 / rotated_y))
 
         return screen_x, screen_y, scale
 
     @staticmethod
     @njit(fastmath=True, parallel=True)
     def render_frame(floor_array, ceil_array, screen_array, tex_size, angle, player_pos, alt):
-
         sin, cos = np.sin(angle), np.cos(angle)
 
-        # Iteriranje kroz zaslonski niz
         for i in prange(WIDTH):
             new_alt = alt
             for j in range(HALF_HEIGHT, HEIGHT):
@@ -60,28 +55,19 @@ class Mode7:
                 y = j + FOCAL_LEN
                 z = j - HALF_HEIGHT + new_alt
 
-                # Rotacija
                 px = (x * cos - y * sin)
                 py = (x * sin + y * cos)
 
-                # Projekcija i transformacija poda
                 floor_x = px / z - player_pos[1]
                 floor_y = py / z + player_pos[0]
-
-                # Pozicija i boja poda
                 floor_pos = int(floor_x * SCALE % tex_size[0]), int(floor_y * SCALE % tex_size[1])
                 floor_col = floor_array[floor_pos]
 
-                # Projekcija i transformacija neba
                 ceil_x = alt * px / z - player_pos[1] * 0.3
                 ceil_y = alt * py / z + player_pos[0] * 0.3
-
-                # Pozicija i boja neba
                 ceil_pos = int(ceil_x * SCALE % tex_size[0]), int(ceil_y * SCALE % tex_size[1])
                 ceil_col = ceil_array[ceil_pos]
 
-                # Sjenčenje
-                # depth = 4 * abs(z) / HALF_HEIGHT
                 depth = min(max(2.5 * (abs(z) / HALF_HEIGHT), 0), 1)
                 fog = (1 - depth) * 230
 
@@ -93,11 +79,9 @@ class Mode7:
                             ceil_col[1] * depth + fog,
                             ceil_col[2] * depth + fog)
 
-                # Ispunjavanje zaslonskog niza
                 screen_array[i, j] = floor_col
                 screen_array[i, -j] = ceil_col
 
-                # Sljedeća dubina
                 new_alt += alt
 
         return screen_array
