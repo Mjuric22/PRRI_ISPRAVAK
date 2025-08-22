@@ -224,7 +224,7 @@ class Enemy:
             pg.draw.rect(screen, (200, 60, 40), (bar_x, bar_y, int(bar_width * hp_ratio), bar_height))
     
     def check_collision(self, projectile):
-        collision_radii = {1: 0.8, 2: 1.0, 3: 0.9, 4: 1.3, 5: 3.0}
+        collision_radii = {1: 0.8, 2: 1.0, 3: 0.9, 4: 1.0, 5: 1.0}
         collision_radius = collision_radii.get(self.enemy_type, 0.8)
         return np.linalg.norm(self.pos - projectile.pos) < collision_radius
 
@@ -235,7 +235,7 @@ class Projectile:
         direction_y = np.cos(player_angle)
         self.direction = np.array([direction_x, direction_y], dtype=np.float32)
         
-        offset_distance = 0.8
+        offset_distance = 0.1
         self.pos = np.array(player_pos, dtype=np.float32) + np.array([offset_distance * direction_x, offset_distance * direction_y])
         self.speed = speed
         self.max_distance = max_distance
@@ -554,7 +554,7 @@ class Game:
             self.enemies = [e for e in self.enemies if e not in enemies_to_remove]
 
     def _handle_player_collisions(self, player_pos, now_ms):
-        damage_values = {1: 2, 2: 3, 3: 1, 4: 5, 5: 10}
+        damage_values = {1: 2, 2: 3, 3: 1, 4: 2, 5: 3}
         
         for enemy in self.enemies:
             if np.linalg.norm(enemy.pos - player_pos) < 0.6:
@@ -572,8 +572,10 @@ class Game:
                     self.player_hp = 0
                     self.game_over = True
                 
-                self.enemies = [e for e in self.enemies if e is not enemy]
-                self.enemies_killed_this_wave += 1
+                # Bossovi 4 i 5 ne umiru kada dodirnu igrača, ostali da
+                if enemy.enemy_type not in [4, 5]:
+                    self.enemies = [e for e in self.enemies if e is not enemy]
+                    self.enemies_killed_this_wave += 1
                 break
 
     def _handle_boss_projectile_collisions(self, player_pos, now_ms):

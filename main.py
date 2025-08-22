@@ -357,8 +357,8 @@ class App:
             1: ("WAVE 1", "Destroy the basic enemies!"),
             2: ("WAVE 2", "Heavy enemies incoming!"),
             3: ("WAVE 3", "Fast enemies attack!"),
-            4: ("MINI BOSS FIGHT", "Watch out for fast bullets!"),
-            5: ("BOSS FIGHT", "Watch out for slow but heavy bullets!")
+            4: ("MINI BOSS FIGHT", "WARNING: Boss deals massive damage on contact & Watch out for fast bullets!"),
+            5: ("BOSS FIGHT", "WARNING: Boss deals massive damage on contact & Watch out for slow but heavy bullets!")
         }
         wave_title, wave_subtitle = wave_configs.get(next_wave, (f"WAVE {next_wave}", ""))
         
@@ -390,12 +390,12 @@ class App:
         weapon_name = self.game.weapons[self.game.last_unlocked_weapon].name
         
         weapon_descriptions = {
-            'basic': 'Basic laser - fast and accurate (2.0/s)',
-            'heavy': 'Heavy cannon - powerful but slow (0.5/s)',
-            'rapid': 'Rapid fire - automatic shooting (6.0/s)',
-            'sniper': 'Sniper rifle - precise and long range (1.5/s)',
-            'shotgun': 'Shotgun - 3 projectiles at once (1.5/s)',
-            'plasma': 'Plasma gun - advanced weapon (2.0/s)'
+            'basic': 'Basic laser - fast and accurate (2 shots/sec)',
+            'heavy': 'Heavy cannon - powerful but slow (1 shot/2 sec)',
+            'rapid': 'Rapid fire - automatic shooting (6 shots/sec)',
+            'sniper': 'Sniper rifle - precise and long range (1.5 shots/sec)',
+            'shotgun': 'Shotgun - 3 projectiles at once (1.5 shots/sec)',
+            'plasma': 'Plasma gun - advanced weapon (2 shots/sec)'
         }
         
         weapon_keys = ['1', '2', '3', '4', '5', '6']
