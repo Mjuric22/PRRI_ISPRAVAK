@@ -384,7 +384,7 @@ class Game:
                     'Use WASD to move your airship',
                     'Left/Right arrows to turn',
                     'Q/E to change altitude',
-                    'SPACE to shoot',
+                    'HOLD SPACE to shoot',
                     'Press SPACE to continue...'
                 ]
             },
@@ -544,7 +544,7 @@ class Game:
                         self.enemies_killed_this_wave += 1
                         
                         # Power-up spawn
-                        if np.random.random() < 0.1:
+                        if np.random.random() < 0.25:
                             power_type = np.random.choice(['damage', 'speed'])
                             self.power_ups.append(PowerUp(enemy.pos, power_type))
                     

@@ -13,6 +13,29 @@ def show_menu(screen):
     title_font = pg.font.SysFont('consolas', 64)
     menu_font = pg.font.SysFont('consolas', 32)
     small_font = pg.font.SysFont('consolas', 20)
+    
+    # Učitaj ikone zvuka
+    try:
+        speaker_on = pg.image.load("textures/zvucnik.png").convert_alpha()
+        speaker_off = pg.image.load("textures/ugasen_zvucnik.png").convert_alpha()
+        speaker_on = pg.transform.scale(speaker_on, (32, 32))
+        speaker_off = pg.transform.scale(speaker_off, (32, 32))
+    except:
+        # Fallback ako slike ne postoje
+        speaker_on = pg.Surface((32, 32))
+        speaker_on.fill((255, 255, 255))
+        speaker_off = pg.Surface((32, 32))
+        speaker_off.fill((100, 100, 100))
+    
+    # Inicijaliziraj glazbu
+    music_on = True
+    try:
+        pg.mixer.music.load("sounds/background.mp3")
+        pg.mixer.music.play(-1)  # Loop glazbu
+        pg.mixer.music.set_volume(0.5)
+    except:
+        music_on = False
+        print("Nije moguće učitati background glazbu")
 
     def draw_button(text, center_y, hovered):
         w, h = 280, 64
@@ -40,22 +63,46 @@ def show_menu(screen):
             play_rect = draw_button('Play', HEIGHT // 2 - 40, hovered=pg.Rect(WIDTH // 2 - 140, HEIGHT // 2 - 40 - 32, 280, 64).collidepoint(mx, my))
             about_rect = draw_button('About', HEIGHT // 2 + 40, hovered=pg.Rect(WIDTH // 2 - 140, HEIGHT // 2 + 40 - 32, 280, 64).collidepoint(mx, my))
             exit_rect = draw_button('Exit', HEIGHT // 2 + 120, hovered=pg.Rect(WIDTH // 2 - 140, HEIGHT // 2 + 120 - 32, 280, 64).collidepoint(mx, my))
+            
+            # Gumb za zvuk
+            speaker_rect = pg.Rect(WIDTH // 2 - 16, HEIGHT // 2 + 180, 32, 32)
+            speaker_hovered = speaker_rect.collidepoint(mx, my)
+            
+            # Pozadina gumba za zvuk
+            if speaker_hovered:
+                pg.draw.rect(screen, (80, 70, 50), speaker_rect, border_radius=5)
+            pg.draw.rect(screen, (200, 170, 120), speaker_rect, width=2, border_radius=5)
+            
+            # Ikonica zvuka
+            current_speaker = speaker_on if music_on else speaker_off
+            screen.blit(current_speaker, speaker_rect)
 
             tip = small_font.render('WASD move | Arrows rotate | Space shoot | Esc exit', True, (210, 200, 180))
             screen.blit(tip, tip.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
 
             for event in pg.event.get():
                 if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
+                    pg.mixer.music.stop()
                     pg.quit()
                     sys.exit()
                 elif event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
                     if play_rect.collidepoint(pg.mouse.get_pos()):
+                        pg.mixer.music.stop()
                         return
                     elif about_rect.collidepoint(pg.mouse.get_pos()):
                         in_about = True
                     elif exit_rect.collidepoint(pg.mouse.get_pos()):
+                        pg.mixer.music.stop()
                         pg.quit()
                         sys.exit()
+                    elif speaker_rect.collidepoint(pg.mouse.get_pos()):
+                        # Toggle glazbu
+                        if music_on:
+                            pg.mixer.music.pause()
+                            music_on = False
+                        else:
+                            pg.mixer.music.unpause()
+                            music_on = True
         else:
             header = title_font.render('About Game', True, (230, 220, 200))
             screen.blit(header, header.get_rect(center=(WIDTH // 2, 140)))
@@ -77,6 +124,7 @@ def show_menu(screen):
 
             for event in pg.event.get():
                 if event.type == pg.QUIT:
+                    pg.mixer.music.stop()
                     pg.quit()
                     sys.exit()
                 elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
@@ -276,12 +324,7 @@ class App:
         animated_border = tuple(int(c * border_pulse) for c in border_color)
         pg.draw.rect(self.screen, animated_border, (50, 50, WIDTH - 100, HEIGHT - 100), 4)
         
-        # Victory decorative lines
-        if line_color:
-            for i in range(0, WIDTH, 50):
-                line_offset = int(np.sin(now_ms * 0.001 + i * 0.1) * 2)
-                pg.draw.line(self.screen, line_color, (i, 60 + line_offset), (i + 30, 60 + line_offset), 2)
-                pg.draw.line(self.screen, line_color, (i, HEIGHT - 60 + line_offset), (i + 30, HEIGHT - 60 + line_offset), 2)
+
         
         # Restart instruction
         restart_pulse = abs(np.sin(now_ms * 0.005)) * 0.4 + 0.6
