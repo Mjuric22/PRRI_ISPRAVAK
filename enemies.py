@@ -15,6 +15,7 @@ def random_spawn_positions(count, min_dist=3, max_dist=8):
 
 class Weapon:
     def __init__(self, name, damage, fire_rate, spread, projectile_speed, max_distance, color, projectile_count=1):
+        """Inicijalizira oružje s njegovim svojstvima"""
         self.name = name
         self.damage = damage
         self.fire_rate = fire_rate
@@ -50,6 +51,7 @@ class Weapon:
 
 class PowerUp:
     def __init__(self, pos, power_type, duration=20000):
+        """Inicijalizira power-up s njegovim svojstvima"""
         self.pos = np.array(pos, dtype=np.float32)
         self.power_type = power_type
         self.creation_time = pg.time.get_ticks()
@@ -82,6 +84,7 @@ class PowerUp:
 
 class Enemy:
     def __init__(self, pos, speed=0.02, hp=3, enemy_type=1):
+        """Inicijalizira neprijatelja s njegovim svojstvima"""
         self.pos = np.array(pos, dtype=np.float32)
         self.speed = speed
         self.hp = hp
@@ -120,6 +123,7 @@ class Enemy:
             self.max_shots = 3
 
     def update(self, player_pos):
+        """Ažurira kretanje i ponašanje neprijatelja"""
         now_ms = pg.time.get_ticks()
         
         # Ažuriraj target poziciju
@@ -200,6 +204,7 @@ class Enemy:
             self.pos += move_dir * (self.speed * speed_multiplier)
     
     def draw(self, screen, mode7):
+        """Nacrtaj neprijatelja na ekranu"""
         screen_x, screen_y, scale = mode7.project(self.pos)
         
         if scale > 0:
@@ -224,6 +229,7 @@ class Enemy:
             pg.draw.rect(screen, (200, 60, 40), (bar_x, bar_y, int(bar_width * hp_ratio), bar_height))
     
     def check_collision(self, projectile):
+        """Provjeri koliziju s projektilom"""
         collision_radii = {1: 0.8, 2: 1.0, 3: 0.9, 4: 1.0, 5: 1.0}
         collision_radius = collision_radii.get(self.enemy_type, 0.8)
         return np.linalg.norm(self.pos - projectile.pos) < collision_radius
@@ -231,6 +237,7 @@ class Enemy:
 
 class Projectile:
     def __init__(self, player_pos, player_angle, speed=0.6, max_distance=22, damage=1, color=(255, 220, 80), piercing=False, homing=False):
+        """Inicijalizira projektil s njegovim svojstvima"""
         direction_x = np.sin(player_angle)
         direction_y = np.cos(player_angle)
         self.direction = np.array([direction_x, direction_y], dtype=np.float32)
@@ -248,6 +255,7 @@ class Projectile:
         self.hit_enemies = set()
 
     def update(self, enemies=None):
+        """Ažurira poziciju projektila"""
         self.pos += self.direction * self.speed
         
         # Homing logika
@@ -271,6 +279,7 @@ class Projectile:
             self.active = False
 
     def draw(self, screen, mode7):
+        """Nacrtaj projektil na ekranu"""
         screen_x, screen_y, scale = mode7.project(self.pos)
         if scale <= 0:
             return
@@ -287,6 +296,7 @@ class Projectile:
 
 class BossProjectile:
     def __init__(self, boss_pos, target_pos, speed=0.1, max_distance=15, damage=3):
+        """Inicijalizira boss projektil s njegovim svojstvima"""
         direction = target_pos - boss_pos
         distance = np.linalg.norm(direction)
         self.direction = direction / distance if distance > 1e-6 else np.array([1.0, 0.0], dtype=np.float32)
@@ -301,12 +311,14 @@ class BossProjectile:
         self.damage = damage
 
     def update(self):
+        """Ažurira poziciju boss projektila"""
         self.pos += self.direction * self.speed
         now_ms = pg.time.get_ticks()
         if now_ms - self.creation_time >= self.lifetime or np.linalg.norm(self.pos - self.start_pos) > self.max_distance:
             self.active = False
 
     def draw(self, screen, mode7):
+        """Nacrtaj boss projektil na ekranu"""
         screen_x, screen_y, scale = mode7.project(self.pos)
         if scale > 0:
             size = max(4, int(scale * 0.4))
@@ -315,6 +327,7 @@ class BossProjectile:
 
 class Game:
     def __init__(self, mode7):
+        """Inicijalizira glavnu igru"""
         self.mode7 = mode7
         initial_positions = random_spawn_positions(5, 2, 4)
         self.enemies = [Enemy(pos, enemy_type=1, hp=9) for pos in initial_positions]
@@ -467,6 +480,7 @@ class Game:
         self.music_muted = False
     
     def update(self, player_pos):
+        """Ažurira stanje igre"""
         if self.game_over or self.tutorial_active:
             return
 
@@ -743,6 +757,7 @@ class Game:
             self.auto_fire_last_shot = now_ms
 
     def draw(self, screen):
+        """Nacrtaj sve entitete igre"""
         for enemy in self.enemies:
             enemy.draw(screen, self.mode7)
         for projectile in self.projectiles:
@@ -763,51 +778,74 @@ class Game:
         self.projectiles.extend(projectiles)
 
     def reset(self):
+        """Resetiraj igru na početno stanje"""
+        # Postavi početne pozicije neprijatelja
         initial_positions = random_spawn_positions(5, 2, 4)
         self.enemies = [Enemy(pos, enemy_type=1, hp=9) for pos in initial_positions]
+        
+        # Očisti sve liste
         self.projectiles = []
         self.boss_projectiles = []
         self.power_ups = []
+        
+        # Resetiraj igračke varijable
         self.score = 0
         self.player_hp = self.player_max_hp
         self.game_over = False
         self.game_won = False
         self.hit_flash_end_ms = 0
+        
+        # Resetiraj wave sustav
         self.wave_start_timer_ms = 0
         self.is_wave_starting = False
         self.wave = 1
+        
+        # Resetiraj oružje i power-upove
         self.current_weapon = 'basic'
         self.active_power_ups = {}
         self.unlocked_weapons = ['basic']
+        
+        # Resetiraj auto-fire
         self.auto_fire_active = False
         self.auto_fire_last_shot = 0
+        
+        # Resetiraj zamrzavanje igre
         self.game_frozen = False
         self.freeze_start_time = 0
         self.last_unlocked_weapon = None
+        
+        # Resetiraj tutorial
         self.tutorial_active = True
         self.tutorial_page = 0
         self.tutorial_last_input = 0
         self.starting_wave_1 = False
+        
+        # Resetiraj wave 4 fazu
         self.wave4_phase = 1
         self.wave4_first_phase_complete = False
         
-        # Reset gameplay music flag
+        # Resetiraj glazbu
         self.gameplay_music_started = False
         self.music_muted = False
         
     def handle_tutorial_input(self):
-        """Handle tutorial navigation"""
+        """Obrađuje tutorial navigaciju"""
         if not self.tutorial_active:
             return
             
         now_ms = pg.time.get_ticks()
         keys = pg.key.get_pressed()
+        
+        # Provjeri SPACE s ograničenjem brzine
         if keys[pg.K_SPACE] and now_ms - self.tutorial_last_input >= 300:
             self.tutorial_last_input = now_ms
             self.tutorial_page += 1
-            # Play tutorial sound
+            
+            # Pušti zvuk tutoriala
             if self.tutorial_sound:
                 self.tutorial_sound.play()
+                
+            # Završi tutorial ako je zadnja stranica
             if self.tutorial_page >= len(self.tutorial_pages):
                 self.tutorial_active = False
                 self.is_wave_starting = True
@@ -816,10 +854,12 @@ class Game:
         
     def _spawn_wave4_second_phase(self):
         """Spawnaj drugu fazu Wave 4: 3x Tip 3 + 1x Boss 4"""
+        # Spawnaj 3 neprijatelja tipa 3
         tip3_positions = random_spawn_positions(3, 2, 4)
         for pos in tip3_positions:
             self.enemies.append(Enemy(pos, enemy_type=3, hp=3))
         
+        # Spawnaj 1 boss tipa 4
         boss_positions = random_spawn_positions(1, 2, 4)
         for pos in boss_positions:
             self.enemies.append(Enemy(pos, enemy_type=4, hp=360))
@@ -827,23 +867,27 @@ class Game:
         self.enemies_killed_this_wave = 0
 
     def spawn_next_wave(self):
+        """Spawnaj sljedeći wave neprijatelja"""
         self.wave += 1
         self.enemies_killed_this_wave = 0
         
+        # Postavi fazu za wave 4
         if self.wave == 4:
             self.wave4_phase = 1
             self.wave4_first_phase_complete = False
         
+        # Konfiguracija za svaki wave (broj, brzina, HP, tip)
         wave_configs = {
-            2: [(4, 0.025, 15, 2)],
-            3: [(4, 0.05, 3, 3)],
-            4: [(2, 0.025, 9, 1), (1, 0.025, 15, 2)],
-            5: [(1, 0.035, 540, 5)]
+            2: [(4, 0.025, 15, 2)],  # 4 neprijatelja tipa 2
+            3: [(4, 0.05, 3, 3)],    # 4 neprijatelja tipa 3
+            4: [(2, 0.025, 9, 1), (1, 0.025, 15, 2)],  # 2 tipa 1 + 1 tipa 2
+            5: [(1, 0.035, 540, 5)]  # 1 boss tipa 5
         }
         
         config = wave_configs.get(self.wave, [(4, 0.025, 15, 2)])
         new_enemies = []
         
+        # Stvori neprijatelje prema konfiguraciji
         for count, speed, hp, enemy_type in config:
             positions = random_spawn_positions(count, 2, 4)
             for pos in positions:
