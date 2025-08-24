@@ -33,8 +33,12 @@ def show_menu(screen):
         pg.mixer.music.load("sounds/background.mp3")
         pg.mixer.music.play(-1)  # Loop glazbu
         pg.mixer.music.set_volume(0.5)
+        # Load UI sounds
+        ui_sound = pg.mixer.Sound("sounds/boop-417-mhz-39313.mp3")
+        ui_sound.set_volume(0.3)
     except:
         music_on = False
+        ui_sound = None
         print("Nije moguće učitati background glazbu")
 
     def draw_button(text, center_y, hovered):
@@ -77,7 +81,7 @@ def show_menu(screen):
             current_speaker = speaker_on if music_on else speaker_off
             screen.blit(current_speaker, speaker_rect)
 
-            tip = small_font.render('WASD move | Arrows rotate | Space shoot | Esc exit', True, (210, 200, 180))
+            tip = small_font.render('WASD move | Arrows rotate | Space shoot | M mute | Esc exit', True, (210, 200, 180))
             screen.blit(tip, tip.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
 
             for event in pg.event.get():
@@ -87,15 +91,23 @@ def show_menu(screen):
                     sys.exit()
                 elif event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
                     if play_rect.collidepoint(pg.mouse.get_pos()):
+                        if ui_sound:
+                            ui_sound.play()
                         pg.mixer.music.stop()
                         return
                     elif about_rect.collidepoint(pg.mouse.get_pos()):
+                        if ui_sound:
+                            ui_sound.play()
                         in_about = True
                     elif exit_rect.collidepoint(pg.mouse.get_pos()):
+                        if ui_sound:
+                            ui_sound.play()
                         pg.mixer.music.stop()
                         pg.quit()
                         sys.exit()
                     elif speaker_rect.collidepoint(pg.mouse.get_pos()):
+                        if ui_sound:
+                            ui_sound.play()
                         # Toggle glazbu
                         if music_on:
                             pg.mixer.music.pause()
@@ -131,6 +143,8 @@ def show_menu(screen):
                     in_about = False
                 elif event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
                     if back_rect.collidepoint(pg.mouse.get_pos()):
+                        if ui_sound:
+                            ui_sound.play()
                         in_about = False
 
         pg.display.flip()
@@ -190,7 +204,21 @@ class App:
             for i, weapon in enumerate(weapons, 1):
                 if event.key == getattr(pg, f'K_{i}') and weapon in self.game.unlocked_weapons and not (self.game.game_over or self.game.game_won):
                     self.game.current_weapon = weapon
+                    # Play weapon switch sound
+                    if self.game.weapon_switch_sound:
+                        self.game.weapon_switch_sound.play()
                     break
+            
+            # Mute music
+            if event.key == pg.K_m and not (self.game.game_over or self.game.game_won):
+                self.game.music_muted = not self.game.music_muted
+                try:
+                    if self.game.music_muted:
+                        pg.mixer.music.pause()
+                    else:
+                        pg.mixer.music.unpause()
+                except:
+                    pass
             
             # Shooting
             if event.key == pg.K_SPACE and not (self.game.game_over or self.game.game_won):
@@ -256,7 +284,7 @@ class App:
         texts = [
             f'Score: {self.game.score}',
             f'Unlocked: {len(self.game.unlocked_weapons)}/{len(self.game.weapons)}',
-            '1-6: Change Weapon | SPACE: Shoot'
+            '1-6: Change Weapon | SPACE: Shoot | M: Mute'
         ]
         colors = [(255, 255, 255), (255, 255, 255), (200, 200, 200)]
         

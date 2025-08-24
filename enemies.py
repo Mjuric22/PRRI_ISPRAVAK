@@ -367,9 +367,34 @@ class Game:
         
         # Sound
         try:
-            self.hit_sound = pg.mixer.Sound('sounds/hit.mp3')
-        except Exception:
+            self.hit_sound = pg.mixer.Sound('sounds/player_hit.mp3')  # Koristi player_hit.mp3
+            self.shoot_sound = pg.mixer.Sound('sounds/shoot.mp3')
+            self.enemy_death_sound = pg.mixer.Sound('sounds/enemy_death.mp3')
+            self.player_hit_sound = pg.mixer.Sound('sounds/player_hit.mp3')
+            self.powerup_sound = pg.mixer.Sound('sounds/powerup.mp3')
+            self.weapon_switch_sound = pg.mixer.Sound('sounds/weapon_switch.mp3')
+            self.boss_shoot_sound = pg.mixer.Sound('sounds/boss_shoot.mp3')
+            self.boss_death_sound = pg.mixer.Sound('sounds/boss_death.mp3')
+            self.weapon_unlock_sound = pg.mixer.Sound('sounds/weapon_unlock.mp3')
+            self.game_over_sound = pg.mixer.Sound('sounds/game_over.mp3')
+            self.victory_sound = pg.mixer.Sound('sounds/victory.mp3')
+            self.tutorial_sound = pg.mixer.Sound('sounds/tutorial.mp3')
+            self.auto_fire_sound = pg.mixer.Sound('sounds/auto_shoot.mp3')  # Koristi auto_shoot.mp3
+        except Exception as e:
+            print(f"Error loading sounds: {e}")
             self.hit_sound = None
+            self.shoot_sound = None
+            self.enemy_death_sound = None
+            self.player_hit_sound = None
+            self.powerup_sound = None
+            self.weapon_switch_sound = None
+            self.boss_shoot_sound = None
+            self.boss_death_sound = None
+            self.weapon_unlock_sound = None
+            self.game_over_sound = None
+            self.victory_sound = None
+            self.tutorial_sound = None
+            self.auto_fire_sound = None
             
         # Tutorial
         self.tutorial_active = True
@@ -385,6 +410,7 @@ class Game:
                     'Left/Right arrows to turn',
                     'Q/E to change altitude',
                     'HOLD SPACE to shoot',
+                    'Press M to mute/unmute music',
                     'Press SPACE to continue...'
                 ]
             },
@@ -435,6 +461,10 @@ class Game:
                 ]
             }
         ]
+        
+        # Gameplay music flag
+        self.gameplay_music_started = False
+        self.music_muted = False
     
     def update(self, player_pos):
         if self.game_over or self.tutorial_active:
@@ -454,6 +484,16 @@ class Game:
         if self.is_wave_starting:
             if now_ms >= self.wave_start_timer_ms:
                 self.is_wave_starting = False
+
+                # Start gameplay music after tutorial
+                if self.tutorial_active == False and self.wave == 1 and not self.gameplay_music_started:
+                    try:
+                        pg.mixer.music.load("sounds/gameplay.mp3")
+                        pg.mixer.music.set_volume(0.2)  # Tiša muzika
+                        pg.mixer.music.play(-1)
+                        self.gameplay_music_started = True
+                    except:
+                        pass
                 if self.starting_wave_1:
                     self.starting_wave_1 = False
                 else:
@@ -497,6 +537,9 @@ class Game:
                                 ])
                                 self.boss_projectiles.append(BossProjectile(enemy.pos, random_target, damage=3))
                         enemy.shots_fired += 1
+                        # Play boss shoot sound
+                        if self.boss_shoot_sound:
+                            self.boss_shoot_sound.play()
 
         # Collisions
         self._handle_projectile_collisions()
@@ -519,6 +562,13 @@ class Game:
                 self._spawn_wave4_second_phase()
             elif self.wave >= 5:
                 self.game_won = True
+                if self.victory_sound:
+                    self.victory_sound.play()
+                # Stop gameplay music
+                try:
+                    pg.mixer.music.stop()
+                except:
+                    pass
             else:
                 self.is_wave_starting = True
                 self.wave_start_timer_ms = pg.time.get_ticks() + 3000
@@ -538,6 +588,14 @@ class Game:
                     
                     if enemy.hp <= 0:
                         enemies_to_remove.append(enemy)
+                        
+                        # Play enemy death sound
+                        if enemy.enemy_type in [4, 5]:  # Boss death
+                            if self.boss_death_sound:
+                                self.boss_death_sound.play()
+                        else:  # Regular enemy death
+                            if self.enemy_death_sound:
+                                self.enemy_death_sound.play()
                         
                         xp_rewards = {1: 100, 2: 200, 3: 300, 4: 400, 5: 500}
                         self.score += xp_rewards.get(enemy.enemy_type, 100)
@@ -562,15 +620,19 @@ class Game:
                 self.player_hp -= damage
                 self.hit_flash_end_ms = now_ms + 180
                 
-                if self.hit_sound:
-                    try:
-                        self.hit_sound.play()
-                    except Exception:
-                        pass
+                if self.player_hit_sound:
+                    self.player_hit_sound.play()
                 
                 if self.player_hp <= 0:
                     self.player_hp = 0
                     self.game_over = True
+                    if self.game_over_sound:
+                        self.game_over_sound.play()
+                    # Stop gameplay music
+                    try:
+                        pg.mixer.music.stop()
+                    except:
+                        pass
                 
                 # Bossovi 4 i 5 ne umiru kada dodirnu igrača, ostali da
                 if enemy.enemy_type not in [4, 5]:
@@ -586,15 +648,19 @@ class Game:
                 self.player_hp -= boss_projectile.damage
                 self.hit_flash_end_ms = now_ms + 180
                 
-                if self.hit_sound:
-                    try:
-                        self.hit_sound.play()
-                    except Exception:
-                        pass
+                if self.player_hit_sound:
+                    self.player_hit_sound.play()
                 
                 if self.player_hp <= 0:
                     self.player_hp = 0
                     self.game_over = True
+                    if self.game_over_sound:
+                        self.game_over_sound.play()
+                    # Stop gameplay music
+                    try:
+                        pg.mixer.music.stop()
+                    except:
+                        pass
                 break
         
         if boss_projectiles_to_remove:
@@ -606,6 +672,9 @@ class Game:
             if np.linalg.norm(power_up.pos - player_pos) < 0.8:
                 power_ups_to_remove.append(power_up)
                 self._apply_power_up(power_up.power_type)
+                # Play power-up sound
+                if self.powerup_sound:
+                    self.powerup_sound.play()
         
         if power_ups_to_remove:
             self.power_ups = [pu for pu in self.power_ups if pu not in power_ups_to_remove]
@@ -644,11 +713,17 @@ class Game:
                 self.game_frozen = True
                 self.freeze_start_time = pg.time.get_ticks()
                 self.last_unlocked_weapon = weapon_name
+                # Play weapon unlock sound
+                if self.weapon_unlock_sound:
+                    self.weapon_unlock_sound.play()
 
     def start_auto_fire(self):
         """Započni automatsko pucanje"""
         self.auto_fire_active = True
         self.auto_fire_last_shot = 0
+        # Play auto-fire sound
+        if self.auto_fire_sound:
+            self.auto_fire_sound.play()
 
     def stop_auto_fire(self):
         """Zaustavi automatsko pucanje"""
@@ -682,6 +757,9 @@ class Game:
         now_ms = pg.time.get_ticks()
         weapon = self.get_modified_weapon()
         projectiles = weapon.shoot(player_pos, player_angle, now_ms)
+        if projectiles:  # Ako su projektili ispaljeni
+            if self.shoot_sound:
+                self.shoot_sound.play()
         self.projectiles.extend(projectiles)
 
     def reset(self):
@@ -713,6 +791,10 @@ class Game:
         self.wave4_phase = 1
         self.wave4_first_phase_complete = False
         
+        # Reset gameplay music flag
+        self.gameplay_music_started = False
+        self.music_muted = False
+        
     def handle_tutorial_input(self):
         """Handle tutorial navigation"""
         if not self.tutorial_active:
@@ -723,6 +805,9 @@ class Game:
         if keys[pg.K_SPACE] and now_ms - self.tutorial_last_input >= 300:
             self.tutorial_last_input = now_ms
             self.tutorial_page += 1
+            # Play tutorial sound
+            if self.tutorial_sound:
+                self.tutorial_sound.play()
             if self.tutorial_page >= len(self.tutorial_pages):
                 self.tutorial_active = False
                 self.is_wave_starting = True
