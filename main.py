@@ -168,15 +168,25 @@ class App:
             self.cloud2 = pg.image.load('textures/cloud2.png').convert_alpha()
             self.cloud3 = pg.image.load('textures/cloud3.png').convert_alpha()
             
-            # Skaliraj oblačke na različite veličine
-            self.cloud1 = pg.transform.scale(self.cloud1, (200, 100))
-            self.cloud2 = pg.transform.scale(self.cloud2, (150, 75))
-            self.cloud3 = pg.transform.scale(self.cloud3, (100, 50))
+            # Skaliraj oblačke na različite veličine (2x veće)
+            self.cloud1 = pg.transform.scale(self.cloud1, (400, 200))
+            self.cloud2 = pg.transform.scale(self.cloud2, (300, 150))
+            self.cloud3 = pg.transform.scale(self.cloud3, (200, 100))
         except:
-            # Fallback - kreiraj ljepše oblačke
-            self.cloud1 = self.create_cloud_surface(200, 100, (255, 255, 255, 60))
-            self.cloud2 = self.create_cloud_surface(150, 75, (255, 255, 255, 40))
-            self.cloud3 = self.create_cloud_surface(100, 50, (255, 255, 255, 25))
+            # Fallback - kreiraj ljepše oblačke (2x veće)
+            self.cloud1 = self.create_cloud_surface(400, 200, (255, 255, 255, 60))
+            self.cloud2 = self.create_cloud_surface(300, 150, (255, 255, 255, 40))
+            self.cloud3 = self.create_cloud_surface(200, 100, (255, 255, 255, 25))
+        
+        # Učitaj power-up slike
+        try:
+            self.powerup_damage = pg.image.load('textures/powerup_damage.png').convert_alpha()
+            self.powerup_speed = pg.image.load('textures/powerup_speed.png').convert_alpha()
+            # Power-up slike su već 64x64 piksela
+        except:
+            # Fallback - kreiraj power-up slike na 64px za bolju rezoluciju
+            self.powerup_damage = self.create_powerup_surface(64, 64, (255, 0, 0))  # Crvena za damage
+            self.powerup_speed = self.create_powerup_surface(64, 64, (0, 255, 0))   # Zelena za speed
         
         # Pozicije oblačaka (svjetske koordinate) - raspoređeno po cijeloj mapi
         self.cloud_positions = [
@@ -220,6 +230,33 @@ class App:
             radius = np.random.randint(3, 8)
             alpha = np.random.randint(20, color[3])
             pg.draw.circle(surface, (*color[:3], alpha), (x, y), radius)
+        
+        return surface
+
+    def create_powerup_surface(self, width, height, color):
+        """Kreiraj ljepšu sliku za power-up s steampunk stilom"""
+        surface = pg.Surface((width, height), pg.SRCALPHA)
+        
+        # Glavni krug
+        center = (width//2, height//2)
+        radius = min(width, height)//2 - 2
+        
+        # Vanjski glow
+        pg.draw.circle(surface, (*color, 100), center, radius + 3)
+        # Glavni krug
+        pg.draw.circle(surface, color, center, radius)
+        # Unutarnji highlight
+        pg.draw.circle(surface, (*color, 200), center, radius - 2)
+        
+        # Dodaj steampunk detalje
+        if color == (255, 0, 0):  # Damage power-up
+            # Crveni križ za damage
+            pg.draw.line(surface, (255, 255, 255), (center[0]-4, center[1]), (center[0]+4, center[1]), 2)
+            pg.draw.line(surface, (255, 255, 255), (center[0], center[1]-4), (center[0], center[1]+4), 2)
+        elif color == (0, 255, 0):  # Speed power-up
+            # Zelena strelica za speed
+            points = [(center[0]-3, center[1]), (center[0]+3, center[1]), (center[0], center[1]-3)]
+            pg.draw.polygon(surface, (255, 255, 255), points)
         
         return surface
 
@@ -372,23 +409,66 @@ class App:
             self.draw_weapon_unlock_screen()
 
     def draw_parallax_clouds(self):
-        """Nacrtaj oblačne slojeve s parallax efektom"""
-        # Parallax faktori (sporiji dalji sloj, brži bliski sloj)
-        parallax_factors = [0.3, 0.6, 1.0]  # Dalji, srednji, bliski
+        """Nacrtaj oblačne slojeve s naprednim parallax efektom"""
+        # Poboljšani parallax faktori (više slojeva za veću dubinu)
+        parallax_factors = [0.15, 0.3, 0.5, 0.7, 0.9, 1.0]  # 6 slojeva umjesto 3
         
-        # Dodaj blagi drift efekt
+        # Napredni drift efekti
         now_ms = pg.time.get_ticks()
-        drift_offset = np.sin(now_ms * 0.0005) * 0.5
+        drift_offset_x = np.sin(now_ms * 0.0003) * 0.8
+        drift_offset_y = np.cos(now_ms * 0.0004) * 0.6
+        
+        # Pulsirajući efekt za oblačke
+        pulse = abs(np.sin(now_ms * 0.002)) * 0.2 + 0.8
+        
+        # Proširene pozicije oblačaka za više slojeva
+        extended_cloud_positions = [
+            # Dalji sloj 1 (najsporiji) - 15 oblačaka
+            [(25, 20), (-22, 30), (35, -15), (-30, -25), (45, 25), (20, -35), (-40, 15), (30, 40), (-45, -20), (40, -30),
+             (50, 10), (-35, 35), (55, -25), (-50, -30), (65, 20)],
+            # Dalji sloj 2 - 18 oblačaka  
+            [(18, 12), (-15, 22), (28, -8), (-22, -18), (38, 18), (15, -28), (-32, 12), (25, 32), (-38, -15), (32, -25),
+             (42, 8), (-28, 28), (48, -18), (-42, -25), (58, 15), (22, -32), (-45, 8), (35, 38)],
+            # Srednji sloj 1 - 20 oblačaka
+            [(12, 8), (-10, 15), (20, -5), (-15, -12), (25, 12), (10, -20), (-25, 8), (18, 25), (-28, -10), (22, -18),
+             (30, 5), (-20, 20), (35, -12), (-30, -18), (40, 10), (15, -25), (-35, 5), (25, 30), (-38, -12), (28, -22)],
+            # Srednji sloj 2 - 22 oblačaka
+            [(8, 5), (-6, 10), (15, -3), (-10, -8), (20, 8), (6, -15), (-18, 5), (12, 18), (-22, -6), (16, -12),
+             (25, 3), (-15, 15), (28, -8), (-25, -12), (32, 6), (10, -18), (-28, 3), (18, 22), (-32, -8), (22, -15),
+             (5, 25), (-12, 18)],
+            # Bliski sloj 1 - 25 oblačaka
+            [(5, 3), (-3, 6), (10, -2), (-6, -5), (15, 5), (3, -10), (-12, 3), (8, 12), (-15, -4), (10, -8),
+             (18, 2), (-8, 10), (22, -5), (-18, -8), (25, 4), (6, -12), (-22, 2), (12, 15), (-25, -5), (15, -10),
+             (3, 18), (-10, 12), (8, -15), (-8, 15), (5, -18)],
+            # Bliski sloj 2 (najbrži) - 28 oblačaka
+            [(3, 2), (-2, 4), (6, -1), (-4, -3), (8, 3), (2, -6), (-7, 2), (5, 8), (-9, -2), (6, -5),
+             (10, 1), (-5, 6), (12, -3), (-8, -5), (14, 2), (4, -8), (-10, 1), (7, 10), (-12, -3), (8, -6),
+             (2, 12), (-6, 8), (5, -10), (-5, 10), (3, -12), (-3, 12), (4, -8), (-4, 8)]
+        ]
+        
+        # Proširene teksture oblačaka
+        cloud_textures = [
+            self.cloud1, self.cloud1,  # Dalji slojevi
+            self.cloud2, self.cloud2,  # Srednji slojevi  
+            self.cloud3, self.cloud3   # Bliski slojevi
+        ]
         
         for layer_idx, (cloud_texture, positions, parallax_factor) in enumerate([
-            (self.cloud1, self.cloud_positions[0], parallax_factors[0]),
-            (self.cloud2, self.cloud_positions[1], parallax_factors[1]),
-            (self.cloud3, self.cloud_positions[2], parallax_factors[2])
+            (cloud_textures[0], extended_cloud_positions[0], parallax_factors[0]),
+            (cloud_textures[1], extended_cloud_positions[1], parallax_factors[1]),
+            (cloud_textures[2], extended_cloud_positions[2], parallax_factors[2]),
+            (cloud_textures[3], extended_cloud_positions[3], parallax_factors[3]),
+            (cloud_textures[4], extended_cloud_positions[4], parallax_factors[4]),
+            (cloud_textures[5], extended_cloud_positions[5], parallax_factors[5])
         ]):
             for cloud_pos in positions:
-                # Izračunaj relativnu poziciju oblačke
-                relative_x = cloud_pos[0] - self.mode7.pos[0] + drift_offset * parallax_factor
-                relative_y = cloud_pos[1] - self.mode7.pos[1]
+                # Napredni drift efekt s različitim brzinama za svaki sloj
+                layer_drift_x = drift_offset_x * parallax_factor * 0.5
+                layer_drift_y = drift_offset_y * parallax_factor * 0.3
+                
+                # Izračunaj relativnu poziciju oblačke s drift efektom
+                relative_x = cloud_pos[0] - self.mode7.pos[0] + layer_drift_x
+                relative_y = cloud_pos[1] - self.mode7.pos[1] + layer_drift_y
                 
                 # Primijeni parallax faktor
                 parallax_x = relative_x * parallax_factor
@@ -400,13 +480,14 @@ class App:
                 
                 # Projektiraj na ekran
                 if rotated_y > 0.1:  # Izbjegni division by zero
-                    screen_x = int(WIDTH // 2 + rotated_x / rotated_y * WIDTH // 3)  # Veći prostor
-                    screen_y = int(HEIGHT // 2 - 50 / rotated_y)  # Fiksna visina za oblačke
+                    screen_x = int(WIDTH // 2 + rotated_x / rotated_y * WIDTH // 3)
+                    screen_y = int(HEIGHT // 2 - 50 / rotated_y)
                     
-                    # Provjeri je li oblačka vidljiva na ekranu (veći prostor)
-                    if -300 < screen_x < WIDTH + 300 and -150 < screen_y < HEIGHT + 150:
-                        # Scale oblačku prema udaljenosti
-                        scale = max(0.1, min(2.0, 1.0 / rotated_y))
+                    # Proširena vidljivost
+                    if -400 < screen_x < WIDTH + 400 and -200 < screen_y < HEIGHT + 200:
+                        # Napredno skaliranje s pulsiranjem
+                        base_scale = max(0.05, min(2.5, 1.0 / rotated_y))
+                        scale = base_scale * pulse
                         scaled_width = int(cloud_texture.get_width() * scale)
                         scaled_height = int(cloud_texture.get_height() * scale)
                         
@@ -414,14 +495,25 @@ class App:
                             scaled_cloud = pg.transform.scale(cloud_texture, (scaled_width, scaled_height))
                             cloud_rect = scaled_cloud.get_rect(center=(screen_x, screen_y))
                             
-                            # Dodaj blagi glow efekt
-                            glow_surface = pg.Surface((scaled_width + 4, scaled_height + 4), pg.SRCALPHA)
-                            glow_surface.fill((255, 255, 255, 10))
-                            glow_rect = glow_surface.get_rect(center=(screen_x, screen_y))
-                            self.screen.blit(glow_surface, glow_rect)
+                            # Glow efekt uklonjen za čistiji izgled
+                            
+                            # Dodaj blagi fade efekt za dalje slojeve
+                            if layer_idx < 2:  # Dalji slojevi
+                                fade_surface = pg.Surface((scaled_width, scaled_height), pg.SRCALPHA)
+                                fade_alpha = int(255 * (0.6 + 0.2 * layer_idx))  # 60-80% alpha
+                                fade_surface.fill((255, 255, 255, fade_alpha))
+                                scaled_cloud.blit(fade_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
                             
                             # Nacrtaj oblačku
                             self.screen.blit(scaled_cloud, cloud_rect)
+                            
+                            # Dodaj male sparkle efekte za bliske slojeve
+                            if layer_idx >= 4 and np.random.random() < 0.1:  # 10% šansa
+                                sparkle_size = int(scale * 3)
+                                sparkle_color = (255, 255, 255, int(100 * pulse))
+                                sparkle_x = screen_x + np.random.randint(-scaled_width//2, scaled_width//2)
+                                sparkle_y = screen_y + np.random.randint(-scaled_height//2, scaled_height//2)
+                                pg.draw.circle(self.screen, sparkle_color, (sparkle_x, sparkle_y), sparkle_size)
 
     def draw_overlay_screen(self, title, subtitle, stats, border_color, line_color=None):
         """Generički overlay ekran za Game Over/Victory"""

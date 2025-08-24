@@ -69,15 +69,33 @@ class PowerUp:
             self.active = False
 
     def draw(self, screen, mode7):
-        """Nacrtaj power-up"""
+        """Nacrtaj power-up s slikom"""
         screen_x, screen_y, scale = mode7.project(self.pos)
         if scale > 0:
-            size = max(4, int(scale * 0.4))
-            glow_size = size + 2
-            pg.draw.circle(screen, (*self.color, 100), (int(screen_x), int(screen_y)), glow_size)
-            pg.draw.circle(screen, self.color, (int(screen_x), int(screen_y)), size)
-            pulse_size = size + int(np.sin(pg.time.get_ticks() * 0.01) * 1)
-            pg.draw.circle(screen, (*self.color, 50), (int(screen_x), int(screen_y)), pulse_size, 1)
+            # Koristi sliku ako je dostupna, inače krug
+            if hasattr(mode7.app, 'powerup_damage') and hasattr(mode7.app, 'powerup_speed'):
+                if self.power_type == 'damage':
+                    powerup_surface = mode7.app.powerup_damage
+                else:  # speed
+                    powerup_surface = mode7.app.powerup_speed
+                
+                # Skaliraj sliku prema udaljenosti (manje u igrici)
+                size = max(4, int(scale * 3))
+                scaled_surface = pg.transform.scale(powerup_surface, (size, size))
+                powerup_rect = scaled_surface.get_rect(center=(int(screen_x), int(screen_y)))
+                
+                # Glow efekt uklonjen za čistiji izgled
+                
+                # Nacrtaj power-up sliku
+                screen.blit(scaled_surface, powerup_rect)
+            else:
+                # Fallback na krugove
+                size = max(4, int(scale * 0.4))
+                glow_size = size + 2
+                pg.draw.circle(screen, (*self.color, 100), (int(screen_x), int(screen_y)), glow_size)
+                pg.draw.circle(screen, self.color, (int(screen_x), int(screen_y)), size)
+                pulse_size = size + int(np.sin(pg.time.get_ticks() * 0.01) * 1)
+                pg.draw.circle(screen, (*self.color, 50), (int(screen_x), int(screen_y)), pulse_size, 1)
 
 
 class Enemy:
@@ -275,7 +293,7 @@ class Projectile:
         if scale <= 0:
             return
         
-        size = max(3, min(8, int(scale * 0.4)))
+        size = max(2, min(4, int(scale * 0.2)))
         glow_size = size + 2
         glow_color = (*self.color, 100)
         pg.draw.circle(screen, glow_color, (int(screen_x), int(screen_y)), glow_size)
@@ -369,6 +387,7 @@ class Game:
         try:
             self.hit_sound = pg.mixer.Sound('sounds/player_hit.mp3')  # Koristi player_hit.mp3
             self.shoot_sound = pg.mixer.Sound('sounds/shoot.mp3')
+            self.shoot_sound.set_volume(0.067)  # Smanjeno za 3x (0.2 / 3)
             self.enemy_death_sound = pg.mixer.Sound('sounds/enemy_death.mp3')
             self.player_hit_sound = pg.mixer.Sound('sounds/player_hit.mp3')
             self.powerup_sound = pg.mixer.Sound('sounds/powerup.mp3')
@@ -379,7 +398,9 @@ class Game:
             self.game_over_sound = pg.mixer.Sound('sounds/game_over.mp3')
             self.victory_sound = pg.mixer.Sound('sounds/victory.mp3')
             self.tutorial_sound = pg.mixer.Sound('sounds/tutorial.mp3')
+            self.tutorial_sound.set_volume(0.1)  # Smanjeno za tutorial navigaciju
             self.auto_fire_sound = pg.mixer.Sound('sounds/auto_shoot.mp3')  # Koristi auto_shoot.mp3
+            self.auto_fire_sound.set_volume(0.067)  # Smanjeno za 3x (0.2 / 3)
         except Exception as e:
             print(f"Error loading sounds: {e}")
             self.hit_sound = None
